@@ -1,0 +1,60 @@
+# ========== 共享构建阶段 ==========
+FROM python:3.9-slim as builder
+
+# 安装编译依赖（与主Dockerfile一致）
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    python3-dev \
+    musl-dev \
+    libffi-dev \
+    openssh-client \
+    && rm -rf /var/lib/apt/lists/*
+
+# 创建虚拟环境
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# 安装依赖（包含Celery专用组件）
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt celery[redis]
+
+# ========== Celery运行时阶段 ==========
+FROM python:3.9-slim
+
+# 安装运行时依赖（增加procps用于监控）
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openssh-client \
+    procps \
+    && rm -rf /var/lib/apt/lists/*
+
+# 复制虚拟环境
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# 创建非root用户（UID与主服务保持一致）
+RUN useradd -m -u 1001 appuser && \
+    mkdir -p /app/ansible && \
+    chown -R appuser:appuser /app
+USER appuser
+WORKDIR /app
+
+# 安装Ansible集合（版本与主服务一致）
+RUN ansible-galaxy collection install kubernetes.core:==2.4.0
+
+# 复制必要文件
+COPY --chown=appuser:appuser ./app ./app
+COPY --chown=appuser:appuser ./ansible ./ansible
+COPY --chown=appuser:appuser ./celery ./celery
+
+# 健康检查（检查Celery Worker状态）
+HEALTHCHECK --interval=1m --timeout=10s --retries=3 \
+    CMD celery -A app.celery.tasks inspect ping -d celery@$HOSTNAME || exit 1
+
+# 启动命令（优化Worker配置）
+CMD ["celery", "-A", "app.celery.tasks", "worker",
+     "--loglevel=info",
+     "--concurrency=4",
+     "--autoscale=10,3",
+     "--without-gossip",
+     "--without-mingle"]

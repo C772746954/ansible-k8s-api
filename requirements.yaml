@@ -1,0 +1,7 @@
+# 使用清华PyPI镜像加速
+pip install -r requirements.txt -i https://mirrors.huaweicloud.com/repository/pypi/simple
+
+# 生产环境推荐使用venv隔离
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
