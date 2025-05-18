@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>K8S Manager</title>
+    <script src="https://unpkg.com/htmx.org@1.9.2"></script>
+    <style>
+        /* 基础样式 */
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+        .navbar { background: #f0f0f0; padding: 10px; margin-bottom: 20px; }
+        .btn { padding: 5px 10px; margin-right: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <a href="/" class="btn">Dashboard</a>
+        <a href="/login" class="btn">Login</a>
+    </nav>
+    <div id="content">
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>
